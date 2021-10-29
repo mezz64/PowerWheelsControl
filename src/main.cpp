@@ -32,7 +32,7 @@ const int DECEL_RATE = 10;
 const int BRAKE_RATE = 12;
 
 // VALUES FOR MAX MOTOR SPEED LIMIT
-// Mmaximum is 255 for forward directions, and -255 for reverse
+// Maximum is 255 for forward directions, and -255 for reverse
 // On 20V BATT: 255 - 20V, 155 - 12V, 75 - 6V
 const int MAXFWD1 = 125;
 const int MAXFWD2 = 200;
