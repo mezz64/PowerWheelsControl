@@ -2,7 +2,7 @@
 
 #define DEBUG
 
-//Defines for ANSI Serial Printouts
+//Defines for ANSI Serial Printouts for DEBUG console
 #define ANSI_ESCAPE_SEQUENCE(c) "\33[" c
 #define ESC_BOLD_ON ANSI_ESCAPE_SEQUENCE("1m")
 #define ESC_BOLD_OFF ANSI_ESCAPE_SEQUENCE("22m")
@@ -25,14 +25,15 @@ const int SHFTFORWARD2 = 2;
 const int SHFTREVERSE = 3;
 const int DEBUG_INTERVAL = 5000;
 
-// VALUES FOR ACCEL/DECEL/BRAKING
-const int ACCEL_RATE = 10; //13
-const int DECEL_RATE = 10; //10
-const int BRAKE_RATE = 12; //13
+// VALUES FOR ACCEL/DECEL/BRAKING RATE
+// SET AS NUMBER OF LOOP ITERATIONS (VARIES W/ DEBUG ON/OFF)
+const int ACCEL_RATE = 10;
+const int DECEL_RATE = 10;
+const int BRAKE_RATE = 12;
 
 // VALUES FOR MAX MOTOR SPEED LIMIT
-// (maximum is 255 for forward directions, and -255 for reverse)
-// 255 - 20V, 155 - 12V, 75 - 6V
+// Maximum is 255 for forward directions, and -255 for reverse
+// On 20V BATT: 255 - 20V, 155 - 12V, 75 - 6V
 const int MAXFWD1 = 125;
 const int MAXFWD2 = 200;
 const int MAXREV = -100;
@@ -57,7 +58,6 @@ const int PARTY_RELAY = 8;
 int currentmode = STOPPED;  // To store current direction of motion
 int shiftmode = 0;          // Store shifter position
 int pwmspeed = 0;            // To store current commanded speed: value may be from -255 (reverse) to 255 (forward). Zero means stopped
-byte command = 0;              // to store Commands
 
 int killState = 0;
 int pedalState = 0;
@@ -80,6 +80,7 @@ int rawpedal = 0;
 unsigned long pedaltime = 0;
 unsigned long Dlastrefresh = 0;
 
+// FUNCTION PROTOTYPES
 void printStates();
 void speedControl();
 void forward();
@@ -97,7 +98,7 @@ void settextdoub(char* fg, char* bg, char* cup, float ival);
 
 void setup() {
 
-  pinMode(LED_BUILTIN, OUTPUT); //PIN 13
+  pinMode(LED_BUILTIN, OUTPUT); //PIN 13 on ARDUINO PRO MINI
   pinMode(REMOTE_KILL_PIN, INPUT_PULLUP);
   pinMode(PEDAL_PIN, INPUT);
   pinMode(SHIFT3_PIN, INPUT_PULLUP);
@@ -109,11 +110,11 @@ void setup() {
   pinMode(FWD_PWM, OUTPUT);
   pinMode(REV_PWM, OUTPUT);
   pinMode(ACC_RELAY, OUTPUT);
-  digitalWrite(ACC_RELAY, HIGH);  //Board is active on low, start off
+  digitalWrite(ACC_RELAY, HIGH);  //Relay Board is active on low, start off
   pinMode(PARTY_RELAY, OUTPUT);
-  digitalWrite(PARTY_RELAY, HIGH);  //Board is active on low, start off
+  digitalWrite(PARTY_RELAY, HIGH);  //Relay Board is active on low, start off
   pinMode(HEADLIGHT_RELAY, OUTPUT);
-  digitalWrite(HEADLIGHT_RELAY, HIGH);  //Board is active on low, start off
+  digitalWrite(HEADLIGHT_RELAY, HIGH);  //Relay Board is active on low, start off
 
   /************** SET PWM frequency. default is 450hz  **********************/
   TCCR2B = TCCR2B & B11111000 | B00000010; //4 kHz pins 9&10, timer1
@@ -122,7 +123,7 @@ void setup() {
   #ifdef DEBUG
     Serial.begin(115200);
     Serial.print(ESC_CURSOR_OFF);
-    settext(ESC_FG_BLACK, ESC_BG_WHITE, ESC_CURSOR_POS(1, 1), "NOAH VEHICLE DEBUG INTERFACE");
+    settext(ESC_FG_BLACK, ESC_BG_WHITE, ESC_CURSOR_POS(1, 1), "VEHICLE DEBUG INTERFACE");
     settext(ESC_FG_WHITE, ESC_BG_BLACK, ESC_CURSOR_POS(2, 1), "PEDAL_STATE: ");
     settext(ESC_FG_WHITE, ESC_BG_BLACK, ESC_CURSOR_POS(3, 1), "PWM_OUTPUT: ");
     settext(ESC_FG_WHITE, ESC_BG_BLACK, ESC_CURSOR_POS(4, 1), "DRIVE_STATE: ");
@@ -157,7 +158,7 @@ void loop() {
   opedalState = pedalState;  //Store previous 
   pedalState = analogRead(PEDAL_PIN);
   rawpedal = pedalState;
-  if (pedalState <= 185) { // pedal rests at 175ish, make sure we don't move
+  if (pedalState <= 185) { // pedal rests at 175ish from the ADC, make sure we don't move
     pedalState = 0; 
   } else {
     pedalState = map(pedalState, 185, 735, 0, 1023); //Remap usable range
@@ -193,14 +194,14 @@ void loop() {
         pedalState = 0;
         break;
     }
-    speedControl();
+    speedControl();  // Parse pedalState to determine accel/decel
   } 
   else
   {
-    // Bring things to a stop
-    brake();
+    brake(); // Bring things to a stop
   }
 
+  // Handle hedlight and party light switch state changes
   if (headlightState == HIGH) {
     digitalWrite(HEADLIGHT_RELAY, LOW);
   } else {
@@ -298,7 +299,6 @@ void decel()
 
 void brake()
 {
-  // Stop at high rate, used when lever is changed direction and pedal is pressed before vehicle has come to a stop.
   if(pwmspeed>0)  // slow from forward direction
   {
     pwmspeed-=BRAKE_RATE;
@@ -357,6 +357,8 @@ void commandMotor()
   delay(50); 
 }
 
+// Read internal voltage reference
+// Not currently used, but may be suitable to calibrate PWM feedback in the future
 long readVcc() { 
   long result; // Read 1.1V reference against AVcc 
   ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1); 
