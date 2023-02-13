@@ -26,17 +26,17 @@ const int SHFTREVERSE = 3;
 const int DEBUG_INTERVAL = 5000;
 
 // VALUES FOR ACCEL/DECEL/BRAKING RATE
-// SET AS NUMBER OF LOOP ITERATIONS (VARIES W/ DEBUG ON/OFF)
-const int ACCEL_RATE = 10;
-const int DECEL_RATE = 10;
+// SET AS ALLOWED PWM STEP 0-255 (VARIES W/ DEBUG ON/OFF)
+const int ACCEL_RATE = 50; // was 10
+const int DECEL_RATE = 20; // was 10
 const int BRAKE_RATE = 12;
 
 // VALUES FOR MAX MOTOR SPEED LIMIT
 // Maximum is 255 for forward directions, and -255 for reverse
 // On 20V BATT: 255 - 20V, 155 - 12V, 75 - 6V
 const int MAXFWD1 = 125;
-const int MAXFWD2 = 200;
-const int MAXREV = -100;
+const int MAXFWD2 = 255;
+const int MAXREV = -125;
 
 //INPUT PINS
 const int REMOTE_KILL_PIN = 7;
@@ -53,6 +53,7 @@ const int REV_PWM = 10;
 const int HEADLIGHT_RELAY = 11;
 const int ACC_RELAY = 12;
 const int PARTY_RELAY = 8;
+const int BEEP_RELAY = 14; //A0, 14
 
 // Variables
 int currentmode = STOPPED;  // To store current direction of motion
@@ -66,6 +67,7 @@ int shift2State = 0;
 int shift1State = 0;
 int partyState = 0;
 int headlightState = 0;
+int beepState = 0;
 
 int okillState = 0;
 int opedalState = 0;
@@ -74,6 +76,7 @@ int oshift2State = 0;
 int oshift1State = 0;
 int opartyState = 0;
 int oheadlightState = 0;
+int obeepState = 0;
 
 int rawpedal = 0;
 
@@ -115,6 +118,8 @@ void setup() {
   digitalWrite(PARTY_RELAY, HIGH);  //Relay Board is active on low, start off
   pinMode(HEADLIGHT_RELAY, OUTPUT);
   digitalWrite(HEADLIGHT_RELAY, HIGH);  //Relay Board is active on low, start off
+  pinMode(BEEP_RELAY, OUTPUT);
+  digitalWrite(BEEP_RELAY, HIGH);  //Relay Board is active on low, start off
 
   /************** SET PWM frequency. default is 450hz  **********************/
   TCCR2B = TCCR2B & B11111000 | B00000010; //4 kHz pins 9&10, timer1
@@ -133,6 +138,7 @@ void setup() {
     settext(ESC_FG_WHITE, ESC_BG_BLACK, ESC_CURSOR_POS(10, 1), "SHFT1_STATE: ");
     settext(ESC_FG_WHITE, ESC_BG_BLACK, ESC_CURSOR_POS(11, 1), "HEADLIGHT_STATE: ");
     settext(ESC_FG_WHITE, ESC_BG_BLACK, ESC_CURSOR_POS(12, 1), "PARTY_STATE: ");
+    settext(ESC_FG_WHITE, ESC_BG_BLACK, ESC_CURSOR_POS(13, 1), "BEEP_STATE: ");
 
     settext(ESC_FG_WHITE, ESC_BG_BLACK, ESC_CURSOR_POS(14, 1), "SHIFT_MODE: ");
     settext(ESC_FG_WHITE, ESC_BG_BLACK, ESC_CURSOR_POS(15, 1), "RAW_PEDAL: ");
@@ -195,10 +201,13 @@ void loop() {
         break;
     }
     speedControl();  // Parse pedalState to determine accel/decel
+    // Reverse Beeper control
+    if (currentmode == REVERSE) { beepState = HIGH; } else { beepState = LOW; }
   } 
   else
   {
     brake(); // Bring things to a stop
+    beepState = LOW; // Always turn off beeper when braking
   }
 
   // Handle hedlight and party light switch state changes
@@ -212,6 +221,11 @@ void loop() {
   } else {
     digitalWrite(PARTY_RELAY, HIGH);
   }
+  if (beepState == HIGH) {
+    digitalWrite(BEEP_RELAY, LOW);
+  } else {
+    digitalWrite(BEEP_RELAY, HIGH);
+  }
 
   #ifdef DEBUG
     settextint(ESC_FG_RED, ESC_BG_BLACK, ESC_CURSOR_POS(2, 16), pedalState);
@@ -224,6 +238,8 @@ void loop() {
     if (shift1State != oshift1State) { settextint(ESC_FG_RED, ESC_BG_BLACK, ESC_CURSOR_POS(10, 15), shift1State); }
     if (headlightState != oheadlightState) { settextint(ESC_FG_RED, ESC_BG_BLACK, ESC_CURSOR_POS(11, 20), headlightState); }
     if (partyState != opartyState) { settextint(ESC_FG_RED, ESC_BG_BLACK, ESC_CURSOR_POS(12, 15), partyState); }
+    // if (beepState != obeepState) { settextint(ESC_FG_RED, ESC_BG_BLACK, ESC_CURSOR_POS(13, 15), beepState); }
+    settextint(ESC_FG_RED, ESC_BG_BLACK, ESC_CURSOR_POS(13, 15), beepState);
 
     settextint(ESC_FG_RED, ESC_BG_BLACK, ESC_CURSOR_POS(14, 15), shiftmode);
     settextint(ESC_FG_RED, ESC_BG_BLACK, ESC_CURSOR_POS(15, 13), rawpedal);
